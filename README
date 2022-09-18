@@ -1,0 +1,12 @@
+#### Espresso PID controller firmware
+
+A very basic PID controller for a Gaggia Classic Pro. Contains a single
+LED display for target temperature and a dial to set the temperature along
+with a bunch of safety checks that ensures the boiler wobn't overheat.
+
+Device is still in development and in time will have a handful of more features
+such as on-device LED indicators and showing current temperature by default
+with target temperature on shown on change.
+
+Currently, PID tuning is completely manual and I found that only a P controller
+is serviceable for the time being (despite having a lot of overshoot).
