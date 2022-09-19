@@ -8,8 +8,8 @@
  */
 
 // PID coefficients
-int kp = 40;
-int ki = 0;
+int kp = 20;
+int ki = 5;
 int kd = 0;
 
 // Pin setup
@@ -41,7 +41,7 @@ int charC = 14;
 // Application specific globals
 int desiredTemp = 87;
 int currentTemp = 0;
-int cutoffTemp = 160;   // Global cutoff temperature
+int cutoffTemp = 180;   // Global cutoff temperature
 
 int integral = 0;
 int lastError = 0;
@@ -57,9 +57,14 @@ int currentTempDigit = 0; //0 1 or 2
 long lastEnc = -999;
 
 long lastDebounceTime = 0;
-long debounceDelay = 75;
-int cycleDelay = 10;
+long debounceDelay = 100;
 int tempPeriod = 1000;
+
+// Timer values
+int displayTimerCurrent = 0;    // Set all led outputs to low
+int desiredTempTimerCurrent = 0;  // Run when user changes temperature so display desired instead of current
+bool isShowDesired = false;
+
 MAX6675 thermoCouple(thermoCLK, thermoCS, thermoDO);
 Encoder tempCtrl(encoderA, encoderB);
 
@@ -126,17 +131,28 @@ void loop() {
   /** 
    *  Handle user interface
    */
-  // Print the current digit to the display
-  printTemperature(currentTempDigit);
 
-  // Read user input
-  // attempt to debounce
+  /*
+   * Every 10ms print out the next LED value
+   */
+  if (displayTimerCurrent >= 10) {
+    printTemperature(currentTempDigit);
+    displayTimerCurrent = 0;
+  } else {
+    displayTimerCurrent++;
+  }
+  /*
+   * Read the dial input
+   * If the dial was turned, switch to showing desired temperature for 1 second
+   */
   if ( (millis() - lastDebounceTime) > debounceDelay) {
     long enc = tempCtrl.read();
     if (lastEnc > enc) {
       desiredTemp--;
       lastEnc = enc;
+      isShowDesired = true;
     } else if (lastEnc < enc) {
+      isShowDesired = true;
       desiredTemp++;
       lastEnc = enc;
     }
@@ -151,15 +167,22 @@ void loop() {
   // If temperature is 10 degrees over target turn red LED on and amber LED off
 
   // Increment values
-  currentMS = currentMS + cycleDelay;
+  currentMS++;
   currentTempDigit++;
   if (currentTempDigit >= 3) {
     currentTempDigit = 0;
   }
-  delay(cycleDelay);
-  digitalWrite(charA, LOW);
-  digitalWrite(charB, LOW);
-  digitalWrite(charC, LOW);
+
+  // For viewing the desired temp vs current temp
+  if (isShowDesired) {
+    desiredTempTimerCurrent++;
+    if (desiredTempTimerCurrent >= 1000) {
+      isShowDesired = false;
+      desiredTempTimerCurrent = 0;
+    }
+  }
+  // Lock execution of the program to 1 millis
+  delay(1);
 }
 
 
@@ -190,15 +213,27 @@ int calculatePid(int error) {
  */
 void printTemperature(int digitNum) {
   unsigned int d = 0;
+  int temp = 0;
+  if (isShowDesired) {
+    temp = desiredTemp;
+  } else {
+    temp = currentTemp;
+  }
   // Enable the right digit
   if (digitNum == 0) {
-    d = getDigit(desiredTemp, 0);
+    d = getDigit(temp, 0);
     digitalWrite(charA, HIGH);
+    digitalWrite(charB, LOW);
+    digitalWrite(charC, LOW);
   } else if (digitNum == 1) {
-    d = getDigit(desiredTemp, 1);
+    d = getDigit(temp, 1);
+    digitalWrite(charA, LOW);
     digitalWrite(charB, HIGH);
-  } else if (digitNum == 2) {
+    digitalWrite(chatC, LOW);
+  } else if (temp == 2) {
     d = getDigit(desiredTemp, 2);
+    digitalWrite(charA, LOW);
+    digitalWrite(charB, LOW);
     digitalWrite(charC, HIGH);
   }
   
